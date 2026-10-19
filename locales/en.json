@@ -1,0 +1,35 @@
+{
+  "__language_name__": "English",
+  "coach_default_analysis": "Keep monitoring your eye habits to build a clearer picture over time.",
+  "coach_default_top": "Build a consistent blink habit during focused work.",
+  "coach_default_secondary": "Take regular screen breaks.",
+  "coach_default_going_well": "You are collecting useful screen-habit data.",
+  "coach_default_rec_blink": "Blink more frequently, especially during focused screen work.",
+  "coach_default_rec_distance": "Maintain a comfortable, arm's-length viewing distance.",
+  "coach_default_rec_break": "Take regular screen breaks using the 20-20-20 rule.",
+  "coach_default_motivation": "Small habits, practiced consistently, protect your eyes over time!",
+  "coach_exercise_name": "Blinking Relaxation",
+  "coach_exercise_instructions": "Gently close and open your eyes several times.",
+
+  "coach_rec_blink_more": "Try to blink more often, especially while reading or focusing.",
+  "coach_rec_move_back": "Move slightly farther from the screen to ease eye strain.",
+  "coach_rec_too_far": "You're sitting quite far back - make sure text is still comfortably readable.",
+  "coach_rec_longer_break": "Consider taking a longer break - you've had several wellness alerts this session.",
+  "coach_rec_generic_blink": "Blink regularly to keep your eyes moist and comfortable.",
+  "coach_rec_generic_break": "Take a short break every 20 minutes using the 20-20-20 rule.",
+
+  "coach_analysis_no_key": "Local analysis (no Gemini API key configured yet).",
+  "coach_analysis_api_error": "Local analysis (AI Coach temporarily unavailable).",
+  "coach_analysis_bad_json": "Local analysis (AI Coach response could not be read).",
+  "coach_analysis_default": "Local analysis of your current session.",
+
+  "coach_top_blink": "Improve blink frequency during focused work.",
+  "coach_top_closer": "Move slightly farther from the screen.",
+  "coach_secondary_warnings": "Reduce repeated wellness warnings with short resets.",
+  "coach_going_well_distance": "Your current screen-distance pattern is consistent.",
+  "coach_motivation_fallback": "Every healthy screen habit adds up - keep going!",
+
+  "coach_answer_blink": "Your current blink rate is {bpm} per minute. Take relaxed blink breaks during focused work.",
+  "coach_answer_distance": "Your current distance status is {distance}. Keep the screen about an arm's length away.",
+  "coach_answer_default": "Try the 20-20-20 rule and use the recommended exercise when it appears. Your current metrics will guide the next analysis."
+}
