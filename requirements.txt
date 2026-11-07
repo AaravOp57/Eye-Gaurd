@@ -6,6 +6,7 @@ Pillow>=10.2.0
 google-generativeai>=0.7.0
 pyttsx3>=2.90
 plyer>=2.1.0
+win10toast>=0.9 ; platform_system == "Windows"
 pywin32>=306 ; platform_system == "Windows"
 pystray>=0.19.5
 matplotlib>=3.8.0

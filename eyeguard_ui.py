@@ -42,7 +42,7 @@ from eyeguard_ai_coach import AIHealthCoach, HealthReport
 from notifications import NotificationManager
 from settings import SettingsManager
 from statistics import StatisticsManager
-from voice import VoiceManager
+from voice import VOICE_ALERT_REPEAT_SECONDS, VoiceManager
 from windows_magnifier import WindowsMagnifier
 from i18n import t
 from tray import TrayController
@@ -67,6 +67,23 @@ BLOCK_COLORS = {
     "gold": ("#d6a824", "#c08e14"),
     "ink": ("#17212b", "#f2f5f7"),
     "muted": ("#52616f", "#aeb8c2"),
+}
+
+CHART_COLORS = {
+    "dark": {
+        "figure": "#20252b",
+        "axes": "#20252b",
+        "foreground": "#f4f7f5",
+        "secondary": "#aeb8c2",
+        "spine": "#3b444d",
+    },
+    "light": {
+        "figure": "#f2f2f2",
+        "axes": "#f2f2f2",
+        "foreground": "#17212b",
+        "secondary": "#52616f",
+        "spine": "#d7dde5",
+    },
 }
 
 
@@ -325,7 +342,10 @@ class EyeGuardApp(ctk.CTk):
 
         self.notification_manager = NotificationManager(enabled=settings.notifications_enabled)
         self.notification_manager.set_focus_mode(settings.focus_mode)
-        self.voice_manager = VoiceManager(enabled=settings.voice_alerts_enabled)
+        self.voice_manager = VoiceManager(
+            enabled=settings.voice_alerts_enabled,
+            language=t.current_lang,
+        )
         self.ai_coach = AIHealthCoach(api_key=settings.gemini_api_key)
 
         self.frame_queue: "queue.Queue" = queue.Queue(maxsize=2)
@@ -336,6 +356,7 @@ class EyeGuardApp(ctk.CTk):
         self.monitoring_active = False
 
         self._latest_health_report: Optional[HealthReport] = None
+        self._coach_conversation = []
         self._break_job: Optional[str] = None
         self._break_countdown_job: Optional[str] = None
         self._break_session_job: Optional[str] = None
@@ -381,22 +402,23 @@ class EyeGuardApp(ctk.CTk):
         sidebar.grid_rowconfigure(13, weight=1)
 
         ctk.CTkLabel(
-            sidebar, text="EyeGuard AI", font=ctk.CTkFont(size=20, weight="bold")
+            sidebar, text=t("EyeGuard AI"), font=ctk.CTkFont(size=20, weight="bold")
         ).grid(row=0, column=0, padx=20, pady=(24, 4), sticky="w")
         ctk.CTkLabel(
-            sidebar, text="Digital Eye Wellness", font=ctk.CTkFont(size=11), text_color="gray60"
+            sidebar, text=t("Digital Eye Wellness"), font=ctk.CTkFont(size=11),
+            text_color=BLOCK_COLORS["muted"],
         ).grid(row=1, column=0, padx=20, pady=(0, 20), sticky="w")
 
         appearance_controls = ctk.CTkFrame(sidebar, fg_color="transparent")
         appearance_controls.grid(row=2, column=0, padx=15, pady=(0, 12), sticky="ew")
         self.quick_appearance_switch = ctk.CTkSwitch(
-            appearance_controls, text="Dark mode", command=self._toggle_appearance
+            appearance_controls, text=t("Dark mode"), command=self._toggle_appearance
         )
         if self.settings_manager.get("theme") == "dark":
             self.quick_appearance_switch.select()
         self.quick_appearance_switch.pack(anchor="w")
         self.quick_accent_selector = ctk.CTkSegmentedButton(
-            appearance_controls, values=["Blue", "Pink"], command=self._set_accent_theme
+            appearance_controls, values=[t("Blue"), t("Pink")], command=self._set_accent_theme
         )
         self.quick_accent_selector.set(self.settings_manager.get("accent_color").title())
         self.quick_accent_selector.pack(fill="x", pady=(8, 0))
@@ -407,31 +429,34 @@ class EyeGuardApp(ctk.CTk):
 
         self.nav_buttons = {}
         nav_items = [
-            ("dashboard", "Dashboard"),
-            ("ai_coach", "AI Health Coach"),
-            ("exercises", "Exercises"),
-            ("statistics", "Statistics"),
-            ("timeline", "Timeline"),
-            ("achievements", "Achievements"),
-            ("notifications", "Notifications"),
-            ("privacy", "Privacy"),
-            ("settings", "Settings"),
+            ("dashboard", t("Dashboard")),
+            ("ai_coach", t("AI Health Coach")),
+            ("exercises", t("Exercises")),
+            ("statistics", t("Statistics")),
+            ("timeline", t("Timeline")),
+            ("achievements", t("Achievements")),
+            ("notifications", t("Notifications")),
+            ("privacy", t("Privacy")),
+            ("settings", t("Settings")),
         ]
         for i, (key, label) in enumerate(nav_items, start=4):
             btn = ctk.CTkButton(
                 sidebar, text=label, anchor="w",
-                fg_color="transparent", command=lambda k=key: self._show_tab(k),
+                fg_color="transparent", text_color=BLOCK_COLORS["ink"],
+                command=lambda k=key: self._show_tab(k),
             )
             btn.grid(row=i, column=0, padx=15, pady=4, sticky="ew")
             self.nav_buttons[key] = btn
 
         self.toggle_btn = ctk.CTkButton(
-            sidebar, text="Start Monitoring", fg_color="#2fa572",
+            sidebar, text=t("Start Monitoring"), fg_color="#2fa572",
             command=self._toggle_monitoring,
         )
         self.toggle_btn.grid(row=14, column=0, padx=15, pady=(10, 20), sticky="ew")
 
-        self.status_label = ctk.CTkLabel(sidebar, text="Status: Idle", text_color="gray60")
+        self.status_label = ctk.CTkLabel(
+            sidebar, text=t("Status: Idle"), text_color=BLOCK_COLORS["muted"]
+        )
         self.status_label.grid(row=15, column=0, padx=15, pady=(0, 20), sticky="w")
 
         # Content container - one frame per tab, only one gridded at a time
@@ -480,6 +505,7 @@ class EyeGuardApp(ctk.CTk):
     def _next_language(self) -> None:
         t.next_language()
         self.settings_manager.set("language", t.current_lang)
+        self.voice_manager.set_language(t.current_lang)
         self.language_btn.configure(text=self._language_button_text())
         self._relabel_everything()
 
@@ -492,6 +518,14 @@ class EyeGuardApp(ctk.CTk):
         else:
             self._configure_start_monitor_button()
         self._refresh_privacy_tab()
+        self._refresh_achievements_tab()
+        if hasattr(self, "coach_concern_guidance"):
+            self.coach_concern_guidance.configure(
+                text=t("Your messages are sent to Google Gemini. The coach provides general wellness guidance, not a diagnosis.")
+            )
+            self.chat_send_btn.configure(text=t("Ask"))
+        if hasattr(self, "privacy_data_label"):
+            self.privacy_data_label.configure(text=t("privacy_data_details"))
         self._ui_tr.refresh()
 
     def _set_status(self, key: str, **values) -> None:
@@ -520,6 +554,8 @@ class EyeGuardApp(ctk.CTk):
                 self.quick_appearance_switch.deselect()
         if hasattr(self, "theme_selector"):
             self.theme_selector.set(mode.title())
+        if hasattr(self, "stats_axes"):
+            self._refresh_charts()
 
     def _set_accent_theme(self, value: str) -> None:
         accent = value.lower()
@@ -566,19 +602,19 @@ class EyeGuardApp(ctk.CTk):
         # Video panel
         video_panel = ctk.CTkFrame(frame)
         video_panel.grid(row=0, column=0, sticky="nswe", padx=(0, 10))
-        self.video_label = ctk.CTkLabel(video_panel, text="Camera feed will appear here\nwhen monitoring starts",
+        self.video_label = ctk.CTkLabel(video_panel, text=t("Camera feed will appear here\nwhen monitoring starts"),
                                          width=VIDEO_WIDTH, height=VIDEO_HEIGHT)
         self.video_label.pack(padx=15, pady=15)
 
         self.break_banner = ctk.CTkFrame(video_panel, fg_color="#8a5a00", corner_radius=8)
         self.break_label = ctk.CTkLabel(self.break_banner, text="", font=ctk.CTkFont(size=14, weight="bold"))
         self.break_label.pack(side="left", padx=15, pady=10)
-        self.break_start_btn = ctk.CTkButton(self.break_banner, text="Start Break", width=100,
+        self.break_start_btn = ctk.CTkButton(self.break_banner, text=t("Start Break"), width=100,
                              command=self._start_break)
         self.break_start_btn.pack(side="right", padx=5, pady=10)
-        ctk.CTkButton(self.break_banner, text="Dismiss", width=80,
+        ctk.CTkButton(self.break_banner, text=t("Dismiss"), width=80,
                       command=self._dismiss_break_reminder).pack(side="right", padx=(5, 15), pady=10)
-        ctk.CTkButton(self.break_banner, text="Snooze 5m", width=90,
+        ctk.CTkButton(self.break_banner, text=t("Snooze 5m"), width=90,
                       command=self._snooze_break_reminder).pack(side="right", padx=5, pady=10)
         # break_banner is packed/unpacked dynamically, not shown by default
 
@@ -586,7 +622,7 @@ class EyeGuardApp(ctk.CTk):
         metrics_panel = ctk.CTkFrame(frame)
         metrics_panel.grid(row=0, column=1, sticky="nswe")
 
-        ctk.CTkLabel(metrics_panel, text="Live Dashboard", font=ctk.CTkFont(size=18, weight="bold")).pack(
+        ctk.CTkLabel(metrics_panel, text=t("Live Dashboard"), font=ctk.CTkFont(size=18, weight="bold")).pack(
             anchor="w", padx=20, pady=(20, 10))
 
         self.blink_count_label = self._metric_row(metrics_panel, "Total Blinks", "0")
@@ -596,7 +632,7 @@ class EyeGuardApp(ctk.CTk):
         self.posture_status_label = self._metric_row(metrics_panel, "Posture", "—")
         self.posture_guidance_label = ctk.CTkLabel(
             metrics_panel, text="Start monitoring to check alignment.", wraplength=300,
-            justify="left", text_color="gray60",
+            justify="left", text_color=BLOCK_COLORS["muted"],
         )
         self.posture_guidance_label.pack(anchor="w", padx=20, pady=(0, 4))
         self.posture_balance_label = self._metric_row(metrics_panel, "Posture Balance", "—")
@@ -608,19 +644,19 @@ class EyeGuardApp(ctk.CTk):
         self.lighting_label = self._metric_row(metrics_panel, "Lighting", "—")
         self.session_time_label = self._metric_row(metrics_panel, "Session Duration", "00:00")
         self.wellness_score_label = self._metric_row(metrics_panel, "Digital Eye Wellness Score", "-- / 100")
-        self.wellness_factors_label = ctk.CTkLabel(metrics_panel, text="Score factors will appear after monitoring.",
-                               wraplength=300, justify="left", text_color="gray60")
+        self.wellness_factors_label = ctk.CTkLabel(metrics_panel, text=t("Score factors will appear after monitoring."),
+                               wraplength=300, justify="left", text_color=BLOCK_COLORS["muted"])
         self.wellness_factors_label.pack(anchor="w", padx=20, pady=(2, 8))
 
         ctk.CTkLabel(
             metrics_panel,
-            text="Distance and posture guidance are camera estimates, not medical measurements.",
-            font=ctk.CTkFont(size=11), text_color="gray60", justify="left",
+            text=t("Distance and posture guidance are camera estimates, not medical measurements."),
+            font=ctk.CTkFont(size=11), text_color=BLOCK_COLORS["muted"], justify="left",
         ).pack(anchor="w", padx=20, pady=(10, 5))
 
-        ctk.CTkLabel(metrics_panel, text="20-20-20 Break Timer", font=ctk.CTkFont(size=15, weight="bold")).pack(
+        ctk.CTkLabel(metrics_panel, text=t("20-20-20 Break Timer"), font=ctk.CTkFont(size=15, weight="bold")).pack(
             anchor="w", padx=20, pady=(20, 5))
-        self.next_break_label = ctk.CTkLabel(metrics_panel, text="Next break in --:--", font=ctk.CTkFont(size=13))
+        self.next_break_label = ctk.CTkLabel(metrics_panel, text=t("Next break in --:--"), font=ctk.CTkFont(size=13))
         self.next_break_label.pack(anchor="w", padx=20, pady=(0, 20))
 
         return frame
@@ -628,7 +664,9 @@ class EyeGuardApp(ctk.CTk):
     def _metric_row(self, parent, title: str, initial_value: str) -> ctk.CTkLabel:
         row = ctk.CTkFrame(parent, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=6)
-        ctk.CTkLabel(row, text=title, font=ctk.CTkFont(size=13), text_color="gray70").pack(side="left")
+        ctk.CTkLabel(
+            row, text=title, font=ctk.CTkFont(size=13), text_color=BLOCK_COLORS["muted"]
+        ).pack(side="left")
         value_label = ctk.CTkLabel(row, text=initial_value, font=ctk.CTkFont(size=13, weight="bold"))
         value_label.pack(side="right")
         return value_label
@@ -641,8 +679,8 @@ class EyeGuardApp(ctk.CTk):
 
         header = ctk.CTkFrame(frame, fg_color="transparent")
         header.pack(fill="x", padx=10, pady=(10, 5))
-        ctk.CTkLabel(header, text="AI Health Coach", font=ctk.CTkFont(size=20, weight="bold")).pack(side="left")
-        self.ai_analyze_btn = ctk.CTkButton(header, text="Get AI Analysis", command=self._request_ai_analysis)
+        ctk.CTkLabel(header, text=t("AI Health Coach"), font=ctk.CTkFont(size=20, weight="bold")).pack(side="left")
+        self.ai_analyze_btn = ctk.CTkButton(header, text=t("Get AI Analysis"), command=self._request_ai_analysis)
         self.ai_analyze_btn.pack(side="right")
 
         card = ctk.CTkFrame(frame)
@@ -650,16 +688,48 @@ class EyeGuardApp(ctk.CTk):
 
         score_row = ctk.CTkFrame(card, fg_color="transparent")
         score_row.pack(fill="x", padx=20, pady=(20, 10))
-        ctk.CTkLabel(score_row, text="Digital Eye Wellness Score", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        ctk.CTkLabel(score_row, text=t("Digital Eye Wellness Score"), font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
         self.health_score_label = ctk.CTkLabel(score_row, text="--", font=ctk.CTkFont(size=22, weight="bold"))
         self.health_score_label.pack(side="right")
         self.health_score_bar = ctk.CTkProgressBar(card)
         self.health_score_bar.set(0)
         self.health_score_bar.pack(fill="x", padx=20, pady=(0, 15))
 
-        ctk.CTkLabel(card, text="Analysis", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20)
+        chat = ctk.CTkFrame(card, fg_color=("gray90", "gray18"))
+        chat.pack(fill="x", padx=20, pady=(0, 15))
+        ctk.CTkLabel(
+            chat, text=t("Ask your coach"), font=ctk.CTkFont(size=13, weight="bold")
+        ).pack(anchor="w", padx=15, pady=(12, 5))
+        self.coach_concern_guidance = ctk.CTkLabel(
+            chat,
+            text=t("Your messages are sent to Google Gemini. The coach provides general wellness guidance, not a diagnosis."),
+            justify="left",
+            wraplength=650,
+            text_color=BLOCK_COLORS["muted"],
+        )
+        self.coach_concern_guidance.pack(anchor="w", padx=15, pady=(0, 8))
+        self.chat_history = ctk.CTkTextbox(chat, height=120, wrap="word")
+        self.chat_history.pack(fill="x", padx=15, pady=(0, 8))
+        greeting = t("coach_chat_greeting")
+        if greeting == "coach_chat_greeting":
+            greeting = t("Ask your coach")
+        self.chat_history.insert("1.0", f"{t('Coach')}: {greeting}\n")
+        self.chat_history.configure(state="disabled")
+        chat_row = ctk.CTkFrame(chat, fg_color="transparent")
+        chat_row.pack(fill="x", padx=15, pady=(0, 8))
+        self.chat_entry = ctk.CTkTextbox(chat_row, height=64, wrap="word")
+        self.chat_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.chat_entry.bind("<Return>", self._on_coach_entry_return)
+        self.chat_send_btn = ctk.CTkButton(
+            chat_row, text=t("Ask"), width=90, command=self._ask_coach_question
+        )
+        self.chat_send_btn.pack(side="right")
+        self.chat_status_label = ctk.CTkLabel(chat, text="", text_color=BLOCK_COLORS["muted"])
+        self.chat_status_label.pack(anchor="w", padx=15, pady=(0, 8))
+
+        ctk.CTkLabel(card, text=t("Analysis"), font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20)
         self.analysis_label = ctk.CTkLabel(
-            card, text="Click \"Get AI Analysis\" after monitoring for a while to see your report.",
+            card, text=t("Click \"Get AI Analysis\" after monitoring for a while to see your report."),
             wraplength=650, justify="left",
         )
         self.analysis_label.pack(anchor="w", padx=20, pady=(2, 15))
@@ -676,7 +746,7 @@ class EyeGuardApp(ctk.CTk):
         self.going_well_label.pack(anchor="w", padx=15, pady=(2, 10))
         self.baseline_label = ctk.CTkLabel(
             card, text="Your baseline: collecting more real sessions...", wraplength=650, justify="left",
-            text_color="gray60",
+            text_color=BLOCK_COLORS["muted"],
         )
         self.baseline_label.pack(anchor="w", padx=20, pady=(0, 12))
 
@@ -686,7 +756,7 @@ class EyeGuardApp(ctk.CTk):
 
         exercise_frame = ctk.CTkFrame(card, fg_color=("gray90", "gray20"))
         exercise_frame.pack(fill="x", padx=20, pady=(0, 15))
-        ctk.CTkLabel(exercise_frame, text="Recommended Exercise", font=ctk.CTkFont(size=13, weight="bold")).pack(
+        ctk.CTkLabel(exercise_frame, text=t("Recommended Exercise"), font=ctk.CTkFont(size=13, weight="bold")).pack(
             anchor="w", padx=15, pady=(12, 2))
         self.exercise_name_label = ctk.CTkLabel(exercise_frame, text="—", font=ctk.CTkFont(size=13, weight="bold"))
         self.exercise_name_label.pack(anchor="w", padx=15)
@@ -697,7 +767,7 @@ class EyeGuardApp(ctk.CTk):
         self.next_reminder_label = ctk.CTkLabel(exercise_frame, text="Next reminder: —")
         self.next_reminder_label.pack(anchor="w", padx=15, pady=(0, 12))
 
-        ctk.CTkLabel(card, text="Motivation", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20)
+        ctk.CTkLabel(card, text=t("Motivation"), font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", padx=20)
         self.motivation_label = ctk.CTkLabel(card, text="—", wraplength=650, justify="left",
                                               text_color="#3fa9f5")
         self.motivation_label.pack(anchor="w", padx=20, pady=(2, 5))
@@ -707,22 +777,8 @@ class EyeGuardApp(ctk.CTk):
             text="EyeGuard AI's coach offers general wellness suggestions only and does\n"
                  "not diagnose or treat any medical condition. Consult an eye-care\n"
                  "professional for persistent discomfort.",
-            font=ctk.CTkFont(size=10), text_color="gray60", justify="left",
+            font=ctk.CTkFont(size=10), text_color=BLOCK_COLORS["muted"], justify="left",
         ).pack(anchor="w", padx=20, pady=(15, 15))
-
-        chat = ctk.CTkFrame(card, fg_color=("gray90", "gray18"))
-        chat.pack(fill="x", padx=20, pady=(5, 15))
-        ctk.CTkLabel(chat, text="Ask your coach", font=ctk.CTkFont(size=13, weight="bold")).pack(
-            anchor="w", padx=15, pady=(12, 5))
-        self.chat_history = ctk.CTkTextbox(chat, height=90, wrap="word")
-        self.chat_history.pack(fill="x", padx=15, pady=(0, 8))
-        self.chat_history.insert("1.0", "Coach: Ask about your screen habits, blink rate, or exercises.\n")
-        self.chat_history.configure(state="disabled")
-        chat_row = ctk.CTkFrame(chat, fg_color="transparent")
-        chat_row.pack(fill="x", padx=15, pady=(0, 12))
-        self.chat_entry = ctk.CTkEntry(chat_row, placeholder_text="How can I improve my screen habits?")
-        self.chat_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        ctk.CTkButton(chat_row, text="Ask", width=80, command=self._ask_coach_question).pack(side="right")
 
         return frame
 
@@ -748,7 +804,7 @@ class EyeGuardApp(ctk.CTk):
         frame = ctk.CTkFrame(parent, fg_color="transparent")
         header = ctk.CTkFrame(frame, corner_radius=0, fg_color=BLOCK_COLORS["stone"])
         header.pack(fill="x", padx=10, pady=(10, 8))
-        ctk.CTkLabel(header, text="Session Timeline", font=ctk.CTkFont(size=20, weight="bold")).pack(
+        ctk.CTkLabel(header, text=t("Session Timeline"), font=ctk.CTkFont(size=20, weight="bold")).pack(
             side="left", padx=16, pady=12
         )
         self.timeline_summary_label = ctk.CTkLabel(header, text="0 events", text_color=BLOCK_COLORS["muted"])
@@ -763,7 +819,7 @@ class EyeGuardApp(ctk.CTk):
         frame = ctk.CTkFrame(parent, fg_color="transparent")
         header = ctk.CTkFrame(frame, corner_radius=0, fg_color=BLOCK_COLORS["stone"])
         header.pack(fill="x", padx=10, pady=(10, 8))
-        ctk.CTkLabel(header, text="Achievements", font=ctk.CTkFont(size=20, weight="bold")).pack(
+        ctk.CTkLabel(header, text=t("Achievements"), font=ctk.CTkFont(size=20, weight="bold")).pack(
             side="left", padx=16, pady=12
         )
         self.achievement_count_label = ctk.CTkLabel(header, text="0 unlocked", text_color=BLOCK_COLORS["muted"])
@@ -776,29 +832,27 @@ class EyeGuardApp(ctk.CTk):
         return frame
 
     def _build_notifications_tab(self, parent):
-        return self._build_text_page(parent, "Notification History", "No notifications recorded yet.")
+        return self._build_text_page(parent, t("Notification History"), t("No notifications recorded yet."))
 
     def _build_privacy_tab(self, parent):
         frame = ctk.CTkFrame(parent, fg_color="transparent")
-        ctk.CTkLabel(frame, text="Privacy", font=ctk.CTkFont(size=20, weight="bold")).pack(
+        ctk.CTkLabel(frame, text=t("Privacy"), font=ctk.CTkFont(size=20, weight="bold")).pack(
             anchor="w", padx=10, pady=(10, 10)
         )
         card = ctk.CTkFrame(frame)
         card.pack(fill="x", padx=10, pady=10)
         self.privacy_camera_status_label = ctk.CTkLabel(
-            card, text="Camera: Off", font=ctk.CTkFont(size=16, weight="bold")
+            card, text=t("Camera: Off"), font=ctk.CTkFont(size=16, weight="bold")
         )
         self.privacy_camera_status_label.pack(anchor="w", padx=20, pady=(20, 8))
-        self.privacy_pause_btn = ctk.CTkButton(card, text="Start Camera", command=self._toggle_monitoring)
+        self.privacy_pause_btn = ctk.CTkButton(card, text=t("Start Camera"), command=self._toggle_monitoring)
         self.privacy_pause_btn.pack(anchor="w", padx=20, pady=(0, 18))
-        ctk.CTkLabel(
+        self.privacy_data_label = ctk.CTkLabel(
             card,
-            text=(
-                "Camera frames are processed on this device and are never saved or sent to an AI service.\n\n"
-                "The optional AI coach receives only numerical session statistics. Settings and statistics stay on this device."
-            ),
-            justify="left", wraplength=700, text_color="gray60",
-        ).pack(anchor="w", padx=20, pady=(0, 20))
+            text=t("privacy_data_details"),
+            justify="left", wraplength=700, text_color=BLOCK_COLORS["muted"],
+        )
+        self.privacy_data_label.pack(anchor="w", padx=20, pady=(0, 20))
         return frame
 
     def _refresh_privacy_tab(self) -> None:
@@ -883,7 +937,9 @@ class EyeGuardApp(ctk.CTk):
             ("Posture Guardian", "Maintain 80% posture balance in 5 sessions", completed_posture_sessions, 5, "Golden_apple"),
         ]
         unlocked_count = sum(1 for _title, _text, progress, target, _icon in definitions if progress >= target)
-        self.achievement_count_label.configure(text=f"{unlocked_count} / {len(definitions)} unlocked")
+        self.achievement_count_label.configure(
+            text=f"{unlocked_count} / {len(definitions)} {t('unlocked')}"
+        )
 
         for index, (title, description, progress, target, icon_name) in enumerate(definitions):
             complete = progress >= target
@@ -901,8 +957,8 @@ class EyeGuardApp(ctk.CTk):
                 icon_label = ctk.CTkLabel(title_row, text="", image=icon, width=34, height=34)
                 icon_label.image = icon
                 icon_label.pack(side="left", padx=(0, 8))
-            ctk.CTkLabel(title_row, text=title, font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
-            ctk.CTkLabel(tile, text=description, wraplength=260, justify="left", text_color=BLOCK_COLORS["muted"]).grid(
+            ctk.CTkLabel(title_row, text=t(title), font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+            ctk.CTkLabel(tile, text=t(description), wraplength=260, justify="left", text_color=BLOCK_COLORS["muted"]).grid(
                 row=1, column=0, sticky="w", padx=14, pady=(0, 10)
             )
             progress_bar = ctk.CTkProgressBar(
@@ -912,7 +968,7 @@ class EyeGuardApp(ctk.CTk):
             progress_bar.set(min(progress / target, 1.0))
             progress_bar.grid(row=2, column=0, sticky="ew", padx=14, pady=(0, 4))
             ctk.CTkLabel(
-                tile, text="UNLOCKED" if complete else f"{min(progress, target)} / {target}",
+                tile, text=t("UNLOCKED") if complete else f"{min(progress, target)} / {target}",
                 font=ctk.CTkFont(size=11, weight="bold"),
             ).grid(row=3, column=0, sticky="w", padx=14, pady=(0, 14))
 
@@ -941,24 +997,24 @@ class EyeGuardApp(ctk.CTk):
 
     def _build_exercises_tab(self, parent) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(parent, fg_color="transparent")
-        ctk.CTkLabel(frame, text="Exercises", font=ctk.CTkFont(size=20, weight="bold")).pack(
+        ctk.CTkLabel(frame, text=t("Exercises"), font=ctk.CTkFont(size=20, weight="bold")).pack(
             anchor="w", padx=10, pady=(10, 10))
         card = ctk.CTkFrame(frame)
         card.pack(fill="both", expand=True, padx=10, pady=10)
-        ctk.CTkLabel(card, text="Recommended exercise", font=ctk.CTkFont(size=15, weight="bold")).pack(
+        ctk.CTkLabel(card, text=t("Recommended exercise"), font=ctk.CTkFont(size=15, weight="bold")).pack(
             anchor="w", padx=20, pady=(25, 8))
-        self.exercise_page_name = ctk.CTkLabel(card, text="Run an AI analysis to receive an exercise.",
+        self.exercise_page_name = ctk.CTkLabel(card, text=t("Run an AI analysis to receive an exercise."),
                                                 font=ctk.CTkFont(size=18, weight="bold"))
         self.exercise_page_name.pack(anchor="w", padx=20, pady=5)
         self.exercise_page_instructions = ctk.CTkLabel(card, text="", wraplength=650, justify="left")
         self.exercise_page_instructions.pack(anchor="w", padx=20, pady=5)
-        self.exercise_page_countdown = ctk.CTkLabel(card, text="Ready", font=ctk.CTkFont(size=28, weight="bold"))
+        self.exercise_page_countdown = ctk.CTkLabel(card, text=t("Ready"), font=ctk.CTkFont(size=28, weight="bold"))
         self.exercise_page_countdown.pack(anchor="w", padx=20, pady=(20, 15))
         controls = ctk.CTkFrame(card, fg_color="transparent")
         controls.pack(anchor="w", padx=20, pady=10)
-        ctk.CTkButton(controls, text="Start", command=self._start_exercise_page).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(controls, text="Pause", command=self._pause_exercise_page).pack(side="left", padx=8)
-        ctk.CTkButton(controls, text="Skip", fg_color="gray40", command=self._skip_exercise_page).pack(side="left", padx=8)
+        ctk.CTkButton(controls, text=t("Start"), command=self._start_exercise_page).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(controls, text=t("Pause"), command=self._pause_exercise_page).pack(side="left", padx=8)
+        ctk.CTkButton(controls, text=t("Skip"), fg_color="gray40", command=self._skip_exercise_page).pack(side="left", padx=8)
         return frame
 
     def _start_exercise_page(self) -> None:
@@ -978,7 +1034,7 @@ class EyeGuardApp(ctk.CTk):
         self.exercise_page_countdown.configure(text=f"{remaining}s")
         if remaining <= 0:
             self.stats_manager.register_exercise_completed()
-            self.exercise_page_countdown.configure(text="Complete")
+            self.exercise_page_countdown.configure(text=t("Complete"))
             return
         self._exercise_remaining -= 1
         self.after(1000, self._tick_exercise_page)
@@ -988,20 +1044,35 @@ class EyeGuardApp(ctk.CTk):
 
     def _skip_exercise_page(self) -> None:
         self._exercise_paused = True
-        self.exercise_page_countdown.configure(text="Skipped")
+        self.exercise_page_countdown.configure(text=t("Skipped"))
 
     def _ask_coach_question(self) -> None:
-        question = self.chat_entry.get().strip()
+        question = self.chat_entry.get("1.0", "end-1c").strip()
         if not question:
             return
-        self.chat_entry.delete(0, "end")
+        self.chat_entry.delete("1.0", "end")
         self._append_chat(f"{t('You')}: {question}")
         snapshot = self.stats_manager.get_dashboard_snapshot()
-        threading.Thread(target=self._run_coach_question, args=(question, snapshot), daemon=True).start()
+        conversation = list(self._coach_conversation)
+        self._coach_conversation.append({"role": "user", "content": question})
+        self._coach_conversation = self._coach_conversation[-20:]
+        self.chat_send_btn.configure(state="disabled")
+        self.chat_status_label.configure(text=t("Analyzing..."))
+        threading.Thread(
+            target=self._run_coach_question,
+            args=(question, snapshot, conversation),
+            daemon=True,
+        ).start()
 
-    def _run_coach_question(self, question: str, snapshot: dict) -> None:
-        answer = self.ai_coach.answer_question(question, snapshot)
-        self.ai_result_queue.put(("chat", answer))
+    def _run_coach_question(self, question: str, snapshot: dict, conversation: list) -> None:
+        answer = self.ai_coach.answer_question(question, snapshot, conversation)
+        self.ai_result_queue.put(("chat", question, answer))
+
+    def _on_coach_entry_return(self, event):
+        if event.state & 0x0001:
+            return None
+        self._ask_coach_question()
+        return "break"
 
     def _append_chat(self, text: str) -> None:
         self.chat_history.configure(state="normal")
@@ -1027,9 +1098,11 @@ class EyeGuardApp(ctk.CTk):
 
         chart_card = ctk.CTkFrame(frame)
         chart_card.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-        self.stats_figure = Figure(figsize=(8, 4.2), dpi=90, facecolor="#20252b")
+        chart_colors = CHART_COLORS[self.settings_manager.get("theme")]
+        self.stats_figure = Figure(figsize=(8, 4.2), dpi=90, facecolor=chart_colors["figure"])
         self.stats_axes = self.stats_figure.subplots(1, 4)
         self.stats_canvas = FigureCanvasTkAgg(self.stats_figure, master=chart_card)
+        self.stats_canvas.get_tk_widget().configure(background=chart_colors["figure"])
         self.stats_canvas.get_tk_widget().pack(fill="both", expand=True, padx=8, pady=8)
         ctk.CTkButton(frame, text="Export Report", width=120, command=self._export_report).pack(
             anchor="e", padx=10, pady=(0, 5))
@@ -1157,17 +1230,20 @@ class EyeGuardApp(ctk.CTk):
 
     def _refresh_charts(self) -> None:
         samples = self.stats_manager.get_metric_history()
+        colors = CHART_COLORS[self.settings_manager.get("theme")]
+        self.stats_figure.set_facecolor(colors["figure"])
+        self.stats_canvas.get_tk_widget().configure(background=colors["figure"])
         for axis in self.stats_axes:
             axis.clear()
-            axis.set_facecolor("#20252b")
-            axis.tick_params(colors="#aeb8c2", labelsize=8)
+            axis.set_facecolor(colors["axes"])
+            axis.tick_params(colors=colors["secondary"], labelsize=8)
             for spine in axis.spines.values():
-                spine.set_color("#3b444d")
+                spine.set_color(colors["spine"])
 
         if len(samples) < 2:
             for axis, title in zip(self.stats_axes, ("Blink Rate", "Distance", "Wellness Score", "Warnings")):
-                axis.set_title(title, color="#f4f7f5", fontsize=10)
-                axis.text(0.5, 0.5, "Collecting data...", ha="center", va="center", color="#aeb8c2")
+                axis.set_title(title, color=colors["foreground"], fontsize=10)
+                axis.text(0.5, 0.5, "Collecting data...", ha="center", va="center", color=colors["secondary"])
                 axis.set_xticks([])
                 axis.set_yticks([])
             self.stats_canvas.draw_idle()
@@ -1187,20 +1263,20 @@ class EyeGuardApp(ctk.CTk):
         warning_counts = [sample.get("warning_count", 0) for sample in samples]
 
         self.stats_axes[0].plot(times, blink_rates, color="#4ecdc4", linewidth=2)
-        self.stats_axes[0].set_title("Blink Rate", color="#f4f7f5", fontsize=10)
-        self.stats_axes[0].set_ylabel("Blinks / min", color="#aeb8c2", fontsize=8)
+        self.stats_axes[0].set_title("Blink Rate", color=colors["foreground"], fontsize=10)
+        self.stats_axes[0].set_ylabel("Blinks / min", color=colors["secondary"], fontsize=8)
         self.stats_axes[1].plot(times, distances, color="#f4b860", linewidth=2)
-        self.stats_axes[1].set_title("Distance", color="#f4f7f5", fontsize=10)
+        self.stats_axes[1].set_title("Distance", color=colors["foreground"], fontsize=10)
         self.stats_axes[1].set_yticks([0, 0.5, 1], ["Far", "Good", "Close"])
-        self.stats_axes[2].set_title("Wellness Score", color="#f4f7f5", fontsize=10)
-        self.stats_axes[2].set_ylabel("Score / 100", color="#aeb8c2", fontsize=8)
+        self.stats_axes[2].set_title("Wellness Score", color=colors["foreground"], fontsize=10)
+        self.stats_axes[2].set_ylabel("Score / 100", color=colors["secondary"], fontsize=8)
         if len(scores) >= 2:
             self.stats_axes[2].plot(score_times, scores, color="#8bd450", linewidth=2)
         else:
-            self.stats_axes[2].text(0.5, 0.5, "Collecting data...", ha="center", va="center", color="#aeb8c2")
+            self.stats_axes[2].text(0.5, 0.5, "Collecting data...", ha="center", va="center", color=colors["secondary"])
         self.stats_axes[3].plot(times, warning_counts, color="#e05252", linewidth=2)
-        self.stats_axes[3].set_title("Warnings", color="#f4f7f5", fontsize=10)
-        self.stats_axes[3].set_ylabel("Count", color="#aeb8c2", fontsize=8)
+        self.stats_axes[3].set_title("Warnings", color=colors["foreground"], fontsize=10)
+        self.stats_axes[3].set_ylabel("Count", color=colors["secondary"], fontsize=8)
         self.stats_figure.tight_layout(pad=1.5)
         self.stats_canvas.draw_idle()
 
@@ -1216,28 +1292,31 @@ class EyeGuardApp(ctk.CTk):
 
         settings = self.settings_manager.get_all()
 
-        ctk.CTkLabel(card, text="Gemini API Key", font=ctk.CTkFont(size=13, weight="bold")).pack(
+        ctk.CTkLabel(card, text=t("Gemini API Key"), font=ctk.CTkFont(size=13, weight="bold")).pack(
             anchor="w", padx=15, pady=(15, 2))
-        self.api_key_entry = ctk.CTkEntry(card, width=400, show="*", placeholder_text="Paste your Gemini API key")
+        self.api_key_entry = ctk.CTkEntry(card, width=400, show="*", placeholder_text=t("Paste your Gemini API key"))
         self.api_key_entry.insert(0, settings.gemini_api_key)
         self.api_key_entry.pack(anchor="w", padx=15, pady=(0, 15))
 
-        self.voice_switch = ctk.CTkSwitch(card, text="Voice alerts")
+        self.voice_switch = ctk.CTkSwitch(card, text=t("Voice alerts"))
         if settings.voice_alerts_enabled:
             self.voice_switch.select()
         self.voice_switch.pack(anchor="w", padx=15, pady=8)
 
-        self.notif_switch = ctk.CTkSwitch(card, text="Desktop notifications")
+        self.notif_switch = ctk.CTkSwitch(card, text=t("Desktop notifications"))
         if settings.notifications_enabled:
             self.notif_switch.select()
         self.notif_switch.pack(anchor="w", padx=15, pady=8)
+        ctk.CTkButton(
+            card, text=t("Test Desktop Notification"), command=self._test_desktop_notification
+        ).pack(anchor="w", padx=15, pady=(0, 8))
 
-        self.focus_switch = ctk.CTkSwitch(card, text="Focus mode (reduce routine notifications)")
+        self.focus_switch = ctk.CTkSwitch(card, text=t("Focus mode (reduce routine notifications)"))
         if settings.focus_mode:
             self.focus_switch.select()
         self.focus_switch.pack(anchor="w", padx=15, pady=8)
 
-        ctk.CTkLabel(card, text="Low blink-rate threshold (blinks/min)").pack(anchor="w", padx=15, pady=(15, 2))
+        ctk.CTkLabel(card, text=t("Low blink-rate threshold (blinks/min)")).pack(anchor="w", padx=15, pady=(15, 2))
         self.blink_threshold_entry = ctk.CTkEntry(card, width=100)
         self.blink_threshold_entry.insert(0, str(settings.blink_rate_threshold))
         self.blink_threshold_entry.pack(anchor="w", padx=15, pady=(0, 10))
@@ -1252,19 +1331,19 @@ class EyeGuardApp(ctk.CTk):
         self.too_far_entry.insert(0, str(settings.distance_too_far_ratio))
         self.too_far_entry.pack(anchor="w", padx=15, pady=(0, 10))
 
-        ctk.CTkLabel(card, text="20-20-20 break interval (minutes)").pack(anchor="w", padx=15, pady=(5, 2))
+        ctk.CTkLabel(card, text=t("20-20-20 break interval (minutes)")).pack(anchor="w", padx=15, pady=(5, 2))
         self.break_interval_entry = ctk.CTkEntry(card, width=100)
         self.break_interval_entry.insert(0, str(settings.break_interval_minutes))
         self.break_interval_entry.pack(anchor="w", padx=15, pady=(0, 10))
 
-        ctk.CTkLabel(card, text="Appearance").pack(anchor="w", padx=15, pady=(15, 2))
+        ctk.CTkLabel(card, text=t("Appearance")).pack(anchor="w", padx=15, pady=(15, 2))
         self.theme_selector = ctk.CTkSegmentedButton(
-            card, values=["Light", "Dark"], command=self._set_appearance_mode
+            card, values=[t("Light"), t("Dark")], command=self._set_appearance_mode
         )
         self.theme_selector.set(settings.theme.title())
         self.theme_selector.pack(anchor="w", padx=15, pady=(0, 10))
         self.accent_selector = ctk.CTkSegmentedButton(
-            card, values=["Blue", "Pink"], command=self._set_accent_theme
+            card, values=[t("Blue"), t("Pink")], command=self._set_accent_theme
         )
         self.accent_selector.set(settings.accent_color.title())
         self.accent_selector.pack(anchor="w", padx=15, pady=(0, 20))
@@ -1272,9 +1351,32 @@ class EyeGuardApp(ctk.CTk):
         self.settings_status_label = ctk.CTkLabel(card, text="", text_color="#2fa572")
         self.settings_status_label.pack(anchor="w", padx=15, pady=(0, 5))
 
-        ctk.CTkButton(card, text="Save Settings", command=self._save_settings).pack(anchor="w", padx=15, pady=(5, 20))
+        ctk.CTkButton(card, text=t("Save Settings"), command=self._save_settings).pack(anchor="w", padx=15, pady=(5, 20))
 
         return frame
+
+    def _test_desktop_notification(self) -> None:
+        if not self.notif_switch.get():
+            self.settings_status_label.configure(
+                text=t("Enable desktop notifications to test an alert."), text_color="#e05252"
+            )
+            return
+        if not self.notification_manager.enabled:
+            self.settings_status_label.configure(
+                text=t("Save settings before testing notifications."), text_color="#e05252"
+            )
+            return
+        if self.notification_manager.notify(
+            "EyeGuard AI", "Desktop notifications are working.", topic="notification_test"
+        ):
+            self.settings_status_label.configure(
+                text=t("Test alert requested. Check Windows notification settings if it isn't visible."),
+                text_color="#2fa572",
+            )
+        else:
+            self.settings_status_label.configure(
+                text=t("Please wait before testing another notification."), text_color="#e05252"
+            )
 
     def _save_settings(self) -> None:
         try:
@@ -1283,7 +1385,7 @@ class EyeGuardApp(ctk.CTk):
             too_far = float(self.too_far_entry.get())
             break_interval = int(self.break_interval_entry.get())
         except ValueError:
-            self.settings_status_label.configure(text="Please enter valid numbers.", text_color="#e05252")
+            self.settings_status_label.configure(text=t("Please enter valid numbers."), text_color="#e05252")
             return
 
         updates = {
@@ -1309,7 +1411,7 @@ class EyeGuardApp(ctk.CTk):
         self._set_appearance_mode(updates["theme"])
         self._set_accent_theme(updates["accent_color"])
 
-        self.settings_status_label.configure(text="Settings saved.", text_color="#2fa572")
+        self.settings_status_label.configure(text=t("Settings saved."), text_color="#2fa572")
 
     # ------------------------------------------------------- Monitoring
 
@@ -1421,27 +1523,43 @@ class EyeGuardApp(ctk.CTk):
                       posture_guidance: str, posture_warning_just_registered: bool) -> None:
         settings = self.settings_manager.get_all()
 
-        # Note: NotificationManager applies its own per-topic cooldown, so
-        # this check runs every poll tick but only actually fires (and is
-        # only counted as a warning) at most once per cooldown window.
+        # Desktop notifications and warning counts use their per-topic
+        # cooldown; voice alerts are rate-limited independently below.
         if snapshot["blinks_per_minute"] > 0 and snapshot["blinks_per_minute"] < settings.blink_rate_threshold \
                 and snapshot["session_duration_minutes"] >= 0.25:
             if self.notification_manager.notify_low_blink_rate():
-                self.voice_manager.speak("Please blink more frequently.")
                 self.stats_manager.register_low_blink_warning()
                 self.stats_manager.register_warning("low_blink_rate")
+            self.voice_manager.speak_once(
+                t("Please blink more frequently."),
+                cooldown_key="low_blink_rate",
+            )
+        else:
+            self.voice_manager.reset_cooldown("low_blink_rate")
 
         if distance_status == DistanceStatus.TOO_CLOSE.value:
             if self.notification_manager.notify_too_close():
-                self.voice_manager.speak("Please move away from the screen.")
                 self.stats_manager.register_distance_warning()
                 self.stats_manager.register_warning("too_close")
+            self.voice_manager.speak(
+                t("Please move away from the screen."),
+                cooldown_key="too_close",
+                cooldown_seconds=VOICE_ALERT_REPEAT_SECONDS,
+            )
+        else:
+            self.voice_manager.reset_cooldown("too_close")
 
         if posture_status == PostureStatus.ADJUST.value and posture_warning_just_registered:
             if self.notification_manager.notify_posture_adjustment(posture_guidance):
-                self.voice_manager.speak(posture_guidance)
                 self.stats_manager.register_posture_warning()
                 self.stats_manager.register_warning("posture_adjustment")
+            self.voice_manager.speak(
+                t(posture_guidance),
+                cooldown_key="posture_adjustment",
+                cooldown_seconds=VOICE_ALERT_REPEAT_SECONDS,
+            )
+        else:
+            self.voice_manager.reset_cooldown("posture_adjustment")
 
     def _drain_event_queue(self) -> None:
         while True:
@@ -1479,7 +1597,12 @@ class EyeGuardApp(ctk.CTk):
         except queue.Empty:
             return
         if isinstance(result, tuple) and result[0] == "chat":
-            self._append_chat(f"{t('Coach')}: {result[1]}")
+            _, _question, answer = result
+            self._append_chat(f"{t('Coach')}: {answer}")
+            self._coach_conversation.append({"role": "assistant", "content": answer})
+            self._coach_conversation = self._coach_conversation[-20:]
+            self.chat_status_label.configure(text="")
+            self.chat_send_btn.configure(state="normal")
             return
         report: HealthReport = result
         self._display_health_report(report)
@@ -1553,7 +1676,9 @@ class EyeGuardApp(ctk.CTk):
 
     def _trigger_exercise_reminder(self, name: str, instructions: str, duration_seconds: int) -> None:
         self.notification_manager.notify_exercise(name, instructions)
-        self.voice_manager.speak(f"Time for your recommended eye exercise: {name}.")
+        self.voice_manager.speak(
+            t("Time for your recommended eye exercise: {name}.", name=name)
+        )
         ExerciseReminderWindow(self, name, instructions, duration_seconds)
 
     # ------------------------------------------------------- 20-20-20 breaks
@@ -1587,7 +1712,9 @@ class EyeGuardApp(ctk.CTk):
     def _trigger_break_reminder(self) -> None:
         self._break_reminder_active = True
         self.notification_manager.notify_break_reminder()
-        self.voice_manager.speak("Time for a break. Look at something 20 feet away for 20 seconds.")
+        self.voice_manager.speak(
+            t("Time for a break. Look at something 20 feet away for 20 seconds.")
+        )
 
         settings = self.settings_manager.get_all()
         self.break_label.configure(

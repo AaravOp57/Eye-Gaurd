@@ -117,5 +117,12 @@
   "Camera: Off": "Камера: выключена",
   "Camera: On - local processing": "Камера: включена — локальная обработка",
   "Start Camera": "Включить камеру",
-  "Pause Camera": "Приостановить камеру"
+  "Pause Camera": "Приостановить камеру",
+  "Please blink more frequently.": "Пожалуйста, моргайте чаще.",
+  "Please move away from the screen.": "Пожалуйста, отодвиньтесь от экрана.",
+  "Level your shoulders": "Расположите плечи ровно",
+  "Center your head over your shoulders": "Расположите голову по центру над плечами",
+  "Look at something 20 feet away for 20 seconds.": "В течение 20 секунд смотрите на предмет примерно в 6 метрах от вас.",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "Пора сделать перерыв. В течение 20 секунд смотрите на предмет примерно в 6 метрах от вас.",
+  "Time for your recommended eye exercise: {name}.": "Пора выполнить рекомендованное упражнение для глаз: {name}."
 }

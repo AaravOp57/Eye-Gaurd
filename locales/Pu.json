@@ -117,5 +117,19 @@
   "Camera: Off": "ਕੈਮਰਾ: ਬੰਦ",
   "Camera: On - local processing": "ਕੈਮਰਾ: ਚਾਲੂ - ਸਥਾਨਕ ਪ੍ਰਕਿਰਿਆ",
   "Start Camera": "ਕੈਮਰਾ ਸ਼ੁਰੂ ਕਰੋ",
-  "Pause Camera": "ਕੈਮਰਾ ਰੋਕੋ"
+  "Pause Camera": "ਕੈਮਰਾ ਰੋਕੋ",
+  "Please blink more frequently.": "ਕਿਰਪਾ ਕਰਕੇ ਹੋਰ ਵਾਰ ਪਲਕਾਂ ਝਪਕਾਓ।",
+  "Please move away from the screen.": "ਕਿਰਪਾ ਕਰਕੇ ਸਕ੍ਰੀਨ ਤੋਂ ਥੋੜ੍ਹਾ ਦੂਰ ਹੋ ਜਾਓ।",
+  "Level your shoulders": "ਆਪਣੇ ਮੋਢੇ ਸਿੱਧੇ ਰੱਖੋ",
+  "Center your head over your shoulders": "ਆਪਣਾ ਸਿਰ ਮੋਢਿਆਂ ਦੇ ਵਿਚਕਾਰ ਸਿੱਧਾ ਰੱਖੋ",
+  "Look at something 20 feet away for 20 seconds.": "ਲਗਭਗ 6 ਮੀਟਰ ਦੂਰ ਕਿਸੇ ਚੀਜ਼ ਨੂੰ 20 ਸਕਿੰਟਾਂ ਲਈ ਦੇਖੋ।",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "ਆਰਾਮ ਕਰਨ ਦਾ ਸਮਾਂ ਹੈ। ਲਗਭਗ 6 ਮੀਟਰ ਦੂਰ ਕਿਸੇ ਚੀਜ਼ ਨੂੰ 20 ਸਕਿੰਟਾਂ ਲਈ ਦੇਖੋ।",
+  "Time for your recommended eye exercise: {name}.": "ਤੁਹਾਡੀ ਸਿਫ਼ਾਰਸ਼ ਕੀਤੀ ਅੱਖਾਂ ਦੀ ਕਸਰਤ ਦਾ ਸਮਾਂ ਹੈ: {name}।",
+  "Tell your coach what's bothering you": "ਕੋਚ ਨੂੰ ਦੱਸੋ ਕਿ ਤੁਹਾਨੂੰ ਕੀ ਪਰੇਸ਼ਾਨ ਕਰ ਰਿਹਾ ਹੈ",
+  "Describe a concern or ask a question. Your message is sent to Google Gemini; guidance is general, not a diagnosis.": "ਆਪਣੀ ਸਮੱਸਿਆ ਦੱਸੋ ਜਾਂ ਸਵਾਲ ਪੁੱਛੋ। ਤੁਹਾਡਾ ਸੁਨੇਹਾ Google Gemini ਨੂੰ ਭੇਜਿਆ ਜਾਂਦਾ ਹੈ; ਇਹ ਸਿਰਫ਼ ਆਮ ਸਿਹਤ ਸਲਾਹ ਹੈ, ਬਿਮਾਰੀ ਦੀ ਪਛਾਣ ਨਹੀਂ।",
+  "Send to Coach": "ਕੋਚ ਨੂੰ ਭੇਜੋ",
+  "coach_chat_greeting": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਆਪਣੀ ਚਿੰਤਾ ਦੱਸੋ, ਮੈਂ ਅੱਖਾਂ ਦੀ ਸਿਹਤ ਬਾਰੇ ਆਮ ਸਲਾਹ ਦੇਣ ਦੀ ਕੋਸ਼ਿਸ਼ ਕਰਾਂਗਾ।",
+  "privacy_data_details": "ਕੈਮਰੇ ਦੀਆਂ ਤਸਵੀਰਾਂ ਇਸ ਡਿਵਾਈਸ 'ਤੇ ਹੀ ਪ੍ਰਕਿਰਿਆ ਕੀਤੀਆਂ ਜਾਂਦੀਆਂ ਹਨ ਅਤੇ ਕਦੇ ਸੰਭਾਲੀਆਂ ਜਾਂ AI ਸੇਵਾ ਨੂੰ ਨਹੀਂ ਭੇਜੀਆਂ ਜਾਂਦੀਆਂ।\n\nਵਿਕਲਪਿਕ AI ਕੋਚ ਤੁਹਾਡੇ ਅੰਕੜਿਆਂ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਭੇਜੇ ਸੁਨੇਹਿਆਂ ਨੂੰ ਜਵਾਬ ਲਈ Google Gemini ਨੂੰ ਭੇਜਦਾ ਹੈ। ਤੁਹਾਡੀਆਂ ਸੈਟਿੰਗਾਂ ਇਸ ਡਿਵਾਈਸ 'ਤੇ ਹੀ ਰਹਿੰਦੀਆਂ ਹਨ।",
+  "coach_question_no_key": "AI Coach ਦਾ ਜਵਾਬ ਲੈਣ ਲਈ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਆਪਣੀ Gemini API ਕੁੰਜੀ ਸ਼ਾਮਲ ਕਰੋ।",
+  "coach_question_api_error": "AI ਸੇਵਾ ਨਾਲ ਸੰਪਰਕ ਨਹੀਂ ਹੋ ਸਕਿਆ। ਇੰਟਰਨੈੱਟ ਕਨੈਕਸ਼ਨ ਅਤੇ Gemini API ਕੁੰਜੀ ਜਾਂਚੋ, ਫਿਰ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"
 }

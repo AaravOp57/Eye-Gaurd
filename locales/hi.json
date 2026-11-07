@@ -88,5 +88,12 @@
   "Camera: Off": "कैमरा: बंद",
   "Camera: On - local processing": "कैमरा: चालू - स्थानीय प्रोसेसिंग",
   "Start Camera": "कैमरा शुरू करें",
-  "Pause Camera": "कैमरा रोकें"
+  "Pause Camera": "कैमरा रोकें",
+  "Please blink more frequently.": "कृपया अधिक बार पलकें झपकाएँ।",
+  "Please move away from the screen.": "कृपया स्क्रीन से थोड़ा दूर हटें।",
+  "Level your shoulders": "अपने कंधों को सीधा रखें",
+  "Center your head over your shoulders": "अपने सिर को कंधों के बीच सीधा रखें",
+  "Look at something 20 feet away for 20 seconds.": "20 सेकंड तक लगभग 6 मीटर दूर किसी चीज़ को देखें।",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "ब्रेक लेने का समय है। 20 सेकंड तक लगभग 6 मीटर दूर किसी चीज़ को देखें।",
+  "Time for your recommended eye exercise: {name}.": "आपके लिए सुझाए गए आँखों के व्यायाम का समय है: {name}।"
 }

@@ -117,5 +117,12 @@
   "Camera: Off": "カメラ：オフ",
   "Camera: On - local processing": "カメラ：オン - ローカル処理",
   "Start Camera": "カメラを開始",
-  "Pause Camera": "カメラを一時停止"
+  "Pause Camera": "カメラを一時停止",
+  "Please blink more frequently.": "もっと頻繁にまばたきしてください。",
+  "Please move away from the screen.": "画面から少し離れてください。",
+  "Level your shoulders": "肩の高さを揃えてください",
+  "Center your head over your shoulders": "肩の真上に頭がくるようにしてください",
+  "Look at something 20 feet away for 20 seconds.": "約6メートル先のものを20秒間見てください。",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "休憩の時間です。約6メートル先のものを20秒間見てください。",
+  "Time for your recommended eye exercise: {name}.": "おすすめの目のエクササイズの時間です：{name}。"
 }

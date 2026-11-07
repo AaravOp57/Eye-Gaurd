@@ -117,5 +117,12 @@
   "Camera: Off": "摄像头：关闭",
   "Camera: On - local processing": "摄像头：开启 - 本地处理",
   "Start Camera": "启动摄像头",
-  "Pause Camera": "暂停摄像头"
+  "Pause Camera": "暂停摄像头",
+  "Please blink more frequently.": "请更频繁地眨眼。",
+  "Please move away from the screen.": "请离屏幕远一些。",
+  "Level your shoulders": "保持双肩水平",
+  "Center your head over your shoulders": "让头部保持在双肩正上方",
+  "Look at something 20 feet away for 20 seconds.": "请看向约6米远的物体，并保持20秒。",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "该休息一下了。请看向约6米远的物体，并保持20秒。",
+  "Time for your recommended eye exercise: {name}.": "现在进行为你推荐的护眼练习：{name}。"
 }

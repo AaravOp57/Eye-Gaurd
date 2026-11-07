@@ -1,5 +1,4 @@
 from __future__ import annotations
-from i18n import t
 """
 notifications.py
 -----------------
@@ -11,9 +10,15 @@ user repeatedly within a short window.
 """
 
 
+import logging
 import threading
 import time
-from typing import Dict, Optional
+from typing import Dict
+
+from i18n import t
+
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationManager:
@@ -80,13 +85,6 @@ class NotificationManager:
 
     def _send(self, title: str, message: str, timeout: int) -> None:
         try:
-            if self._tray is not None and hasattr(self._tray, "notify"):
-                self._tray.notify(title, message)
-                return
-        except Exception:
-            pass
-
-        try:
             from plyer import notification
             notification.notify(
                 title=title,
@@ -96,37 +94,44 @@ class NotificationManager:
             )
             return
         except Exception:
-            # No notification backend is available in this environment; keep the
-            # app responsive instead of crashing the monitor loop.
-            pass
+            logger.warning("Desktop notification backend failed; trying the system tray.", exc_info=True)
+
+        if self._tray is not None and hasattr(self._tray, "notify"):
+            try:
+                if self._tray.notify(title, message):
+                    return
+            except Exception:
+                logger.warning("System-tray notification failed.", exc_info=True)
+
+        logger.error("No notification backend could display the alert: %s", title)
 
     def notify_low_blink_rate(self) -> bool:
         if self.focus_mode:
             return False
         return self.notify(
-            title="EyeGuard AI",
-            message="Please blink more frequently.",
+            title=t("EyeGuard AI"),
+            message=t("Please blink more frequently."),
             topic="low_blink_rate",
         )
 
     def notify_too_close(self) -> bool:
         return self.notify(
-            title="EyeGuard AI",
-            message="Please move away from the screen.",
+            title=t("EyeGuard AI"),
+            message=t("Please move away from the screen."),
             topic="too_close",
         )
 
     def notify_posture_adjustment(self, guidance: str) -> bool:
         return self.notify(
-            title="EyeGuard AI",
-            message=guidance,
+            title=t("EyeGuard AI"),
+            message=t(guidance),
             topic="posture_adjustment",
         )
 
     def notify_break_reminder(self) -> None:
         self.notify(
-            title="EyeGuard AI — 20-20-20 Reminder",
-            message="Look at something 20 feet away for 20 seconds.",
+            title=f"{t('EyeGuard AI')} — {t('20-20-20 Break Timer')}",
+            message=t("Look at something 20 feet away for 20 seconds."),
             topic="break_reminder",
             timeout=12,
         )
@@ -135,7 +140,7 @@ class NotificationManager:
         if self.focus_mode:
             return
         self.notify(
-            title="EyeGuard AI — Time for your recommended eye exercise!",
+            title=f"{t('EyeGuard AI')} — {t('Recommended Exercise')}",
             message=f"{exercise_name}: {instructions}",
             topic="exercise_reminder",
             timeout=12,

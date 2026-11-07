@@ -117,5 +117,12 @@
   "Camera: Off": "Kamera: Aus",
   "Camera: On - local processing": "Kamera: Ein – lokale Verarbeitung",
   "Start Camera": "Kamera starten",
-  "Pause Camera": "Kamera pausieren"
+  "Pause Camera": "Kamera pausieren",
+  "Please blink more frequently.": "Blinzle häufiger.",
+  "Please move away from the screen.": "Geh etwas weiter vom Bildschirm weg.",
+  "Level your shoulders": "Richte deine Schultern gerade aus",
+  "Center your head over your shoulders": "Richte deinen Kopf mittig über den Schultern aus",
+  "Look at something 20 feet away for 20 seconds.": "Schau 20 Sekunden lang auf etwas in etwa 6 Metern Entfernung.",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "Zeit für eine Pause. Schau 20 Sekunden lang auf etwas in etwa 6 Metern Entfernung.",
+  "Time for your recommended eye exercise: {name}.": "Zeit für deine empfohlene Augenübung: {name}."
 }

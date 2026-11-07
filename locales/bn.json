@@ -88,5 +88,12 @@
   "Camera: Off": "ক্যামেরা: বন্ধ",
   "Camera: On - local processing": "ক্যামেরা: চালু - স্থানীয় প্রক্রিয়াকরণ",
   "Start Camera": "ক্যামেরা চালু করুন",
-  "Pause Camera": "ক্যামেরা বন্ধ রাখুন"
+  "Pause Camera": "ক্যামেরা বন্ধ রাখুন",
+  "Please blink more frequently.": "অনুগ্রহ করে আরও ঘন ঘন চোখের পলক ফেলুন।",
+  "Please move away from the screen.": "অনুগ্রহ করে স্ক্রিন থেকে একটু দূরে সরে যান।",
+  "Level your shoulders": "আপনার কাঁধ সমান রাখুন",
+  "Center your head over your shoulders": "আপনার মাথা কাঁধের মাঝখানে সোজা রাখুন",
+  "Look at something 20 feet away for 20 seconds.": "২০ সেকেন্ড ধরে প্রায় ৬ মিটার দূরের কোনো কিছুর দিকে তাকান।",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "বিরতির সময় হয়েছে। ২০ সেকেন্ড ধরে প্রায় ৬ মিটার দূরের কোনো কিছুর দিকে তাকান।",
+  "Time for your recommended eye exercise: {name}.": "আপনার জন্য সুপারিশ করা চোখের ব্যায়ামের সময় হয়েছে: {name}।"
 }

@@ -117,5 +117,12 @@
   "Camera: Off": "கேமரா: அணை",
   "Camera: On - local processing": "கேமரா: இயக்கு - உள்ளகச் செயலாக்கம்",
   "Start Camera": "கேமராவைத் தொடங்கு",
-  "Pause Camera": "கேமராவை இடைநிறுத்து"
+  "Pause Camera": "கேமராவை இடைநிறுத்து",
+  "Please blink more frequently.": "தயவுசெய்து அடிக்கடி கண் சிமிட்டுங்கள்.",
+  "Please move away from the screen.": "தயவுசெய்து திரையிலிருந்து சற்று தள்ளிச் செல்லுங்கள்.",
+  "Level your shoulders": "உங்கள் தோள்களை நேராக வைத்திருங்கள்",
+  "Center your head over your shoulders": "உங்கள் தலையைத் தோள்களின் நடுவில் நேராக வையுங்கள்",
+  "Look at something 20 feet away for 20 seconds.": "சுமார் 6 மீட்டர் தொலைவில் உள்ள ஒன்றை 20 விநாடிகள் பாருங்கள்.",
+  "Time for a break. Look at something 20 feet away for 20 seconds.": "ஓய்வு எடுக்கும் நேரம். சுமார் 6 மீட்டர் தொலைவில் உள்ள ஒன்றை 20 விநாடிகள் பாருங்கள்.",
+  "Time for your recommended eye exercise: {name}.": "பரிந்துரைக்கப்பட்ட கண் பயிற்சிக்கான நேரம்: {name}."
 }

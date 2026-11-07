@@ -3,8 +3,12 @@ from __future__ import annotations
 from i18n import t
 
 
+import logging
 import threading
 from typing import Callable, Optional
+
+
+logger = logging.getLogger(__name__)
 
 
 class TrayController:
@@ -31,12 +35,14 @@ class TrayController:
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
 
-    def notify(self, title: str, message: str) -> None:
+    def notify(self, title: str, message: str) -> bool:
         if self._icon is not None and hasattr(self._icon, "notify"):
             try:
                 self._icon.notify(message, title=title)
+                return True
             except Exception:
-                pass
+                logger.warning("System-tray notification failed.", exc_info=True)
+        return False
 
     def start(self) -> None:
         try:

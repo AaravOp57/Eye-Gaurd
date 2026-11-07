@@ -113,6 +113,26 @@ class TranslatorTests(unittest.TestCase):
         self.assertTrue(translator.set_language("tu"))
         self.assertTrue(all(key in translator.translations["tu"] for key in all_locale_keys))
 
+    def test_alert_messages_are_translated_in_every_bundled_locale(self):
+        locale_dir = Path(__file__).parents[1] / "locales"
+        alert_keys = (
+            "Please blink more frequently.",
+            "Please move away from the screen.",
+            "Level your shoulders",
+            "Center your head over your shoulders",
+            "Look at something 20 feet away for 20 seconds.",
+            "Time for a break. Look at something 20 feet away for 20 seconds.",
+            "Time for your recommended eye exercise: {name}.",
+        )
+
+        for locale_file in locale_dir.glob("*.json"):
+            translations = json.loads(locale_file.read_text(encoding="utf-8"))
+            with self.subTest(language=locale_file.stem):
+                for key in alert_keys:
+                    self.assertIn(key, translations)
+                    if locale_file.stem.casefold() != "en":
+                        self.assertNotEqual(translations[key], key)
+
 
 if __name__ == "__main__":
     unittest.main()
